@@ -188,18 +188,22 @@ class FlashcardsSettingsTab extends PluginSettingTab {
       })
     );
 
-    new Setting(containerEl)
-    .setName("Model")
-    .setDesc("Which language model to use")
-    .addDropdown((dropdown) =>
-      dropdown
-      .addOption("text-davinci-003", "text-davinci-003")
-      .addOption("gpt-3.5-turbo", "gpt-3.5-turbo")
-      .setValue(this.plugin.settings.model)
-      .onChange(async (value) => {
+    const models = ["text-davinci-003", "gpt-3.5-turbo", "gpt-3.5-turbo-0125", "gpt-4-turbo-preview"];
+
+    new Setting(containerEl).setName("Model").setDesc("Which language model to use").addDropdown(
+      (dd) => {
+        let dropdown = dd
+
+        for (const model of models) {
+          dropdown = dropdown.addOption(model, model);
+        }
+
+        dropdown = dropdown.setValue(this.plugin.settings.model).onChange(async (value) => {
         this.plugin.settings.model = value;
         await this.plugin.saveSettings();
       })
+        return dropdown;
+      }
     );
 
     containerEl.createEl("h3", {text: "Preferences"})
