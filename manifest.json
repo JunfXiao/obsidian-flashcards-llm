@@ -1,11 +1,11 @@
 {
-  "id": "flashcards-llm",
-  "name": "Flashcards LLM",
+  "id": "flashcards-llm-improved",
+  "name": "Flashcards LLM Improved",
   "version": "0.0.5",
   "minAppVersion": "0.15.0",
   "description": "Use Large Language Models (such as ChatGPT) to automatically generate flashcards from obsidian notes",
-  "author": "Marco Pampaloni",
-  "authorUrl": "https://github.com/crybot",
+  "author": "Junfeng Xiao",
+  "authorUrl": "https://github.com/JunfXiao/obsidian-flashcards-llm",
   "fundingUrl": {
     "Buy Me a Coffee": "https://bmc.link/crybot",
     "GitHub Sponsor": "https://github.com/sponsors/crybot"
