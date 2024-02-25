@@ -20,7 +20,7 @@ function extractTextAfterFlashcards(text: string): string | null {
 }
 
 
-export async function generateFlashcards(text: string, apiKey: string, model: string = "text-davinci-003", sep: string = "::"): Promise<string> {
+export async function generateFlashcards(text: string, apiKey: string, model = "text-davinci-003", sep = "::", flashcardCount = 5): Promise<string> {
   const configuration = new Configuration({
     apiKey: apiKey,
   });
@@ -30,7 +30,14 @@ export async function generateFlashcards(text: string, apiKey: string, model: st
   const cleanedText = text.replace(/<!--.*-->[\n]?/g, "");
   const flashcardText = cleanedText
 
-  const basePrompt = `I'll provide you with a note. At the end of the note are some flashcards. Identify which are the most important concepts within the note and generate 3 new original flashcard in the format \"question ${sep} answer\". Strictly use ${sep} to separate a question from its answer. Separate flashcards with a single newline. An example is \"What is chemical formula of water ${sep} H2O\". Do not use any prefix text, start generating right away. Try to make them as atomic as possible, but still challenging and rich of information. DO NOT REPEAT OR REPHRASE FLASHCARDS. Focus on important latex formulas and equations. Please typeset equations and math formulas correctly (that is using the \$ symbol)`;
+  const basePrompt = `You're an Anki Flashcards generator. The user will provide you with a note. At the end of the note are some flashcards. You should think step by step and generate flashcards following these rules: 
+  1. First identify which are the most important concepts within the note. Focus on important concepts, latex formulas and equations.
+  2. At the end of user's note (that is after #flashcards tag), you will find some existing flashcards. Read those flashcards, ignore those basicblock-start and basicblock-end flags and AVOID CREATING FLASHCARDS WITH SIMILAR CONTENTS OR QUESTIONS LIKE THEM. DO NOT REPEAT OR REPHRASE THESE EXISTING FLASHCARDS.
+  3. And then generate at most ${flashcardCount} new original flashcards in the format "question ${sep} answer". Strictly use ${sep} to separate a question from its answer. Separate flashcards with a single newline. An example is "What is chemical formula of water ${sep} H2O". Do not use any prefix text, start generating right away. Try to make them as atomic as possible, but still challenging and rich of information. 
+  4. Please typeset equations and math formulas correctly (that is using the $ symbol).
+  5. You should reply always in German if the input is in German.
+  6. Your output flashcards should always follow "question ${sep} answer" format with no flags from rule 3.`;
+
   const additionalPrompt = "Additional information on the task: Focus primarily on formulas and equations. Do NOT always start the questions with What. Do not repeat questions. Do not rephrase questions already generated. You can also ask the user to describe something or detail a given concept. You can even write flashcards asking to fill a missing word or phrase.";
 
   let response = null;
