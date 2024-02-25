@@ -1,4 +1,4 @@
-import { App, Editor, EditorPosition, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, EditorPosition, MarkdownView, Notice, Plugin, PluginSettingTab, Setting, resolveSubpath } from 'obsidian';
 import { generateFlashcards } from "./flashcards";
 
 interface FlashcardsSettings {
@@ -31,6 +31,47 @@ export default class FlashcardsLLMPlugin extends Plugin {
     this.addSettingTab(new FlashcardsSettingsTab(this.app, this));
   }
 
+
+  /**
+   * Resolves a link to a file in the vault.
+   * For example, if the link is `![[My Note#heading]]`, this function should return the content of the #heading section in the file My Note.
+   * @param link - The link to resolve
+   */
+  async resolveLink(link: string): Promise<string|null> { 
+    // split link by the very first #, if it exists
+    const sharpIndex = link.indexOf("#");
+    let filePath:string;
+    let heading = "";
+    if (sharpIndex > 0) {
+      filePath = link.slice(0, sharpIndex);
+      heading = link.slice(sharpIndex);
+    } else {
+      filePath = link;
+    }
+    const targetFile = this.app.metadataCache.getFirstLinkpathDest(filePath,heading)
+    if (!targetFile) {
+      return null;
+    }
+    const metadataCache = this.app.metadataCache.getFileCache(targetFile);
+    if (!metadataCache) {
+      return null;
+    }
+    const resolveResult = resolveSubpath(metadataCache, heading);
+
+    if (!resolveResult) {
+      return null;
+
+    }
+
+    const start = resolveResult.start;
+    const end = resolveResult.end;
+    // get the content of the resolved link by using the start and end position
+    const content = await this.app.vault.cachedRead(targetFile);
+    const resolvedLink = content.substring(start.offset, end?.offset);
+    return resolvedLink;
+    
+  }
+
   async onGenerateFlashcards(editor: Editor, view: MarkdownView) {
     const apiKey = this.settings.apiKey;
     if (!apiKey) {
@@ -42,7 +83,27 @@ export default class FlashcardsLLMPlugin extends Plugin {
     const model = this.settings.model;
 
     const wholeText = editor.getValue()
-    const currentText = (editor.somethingSelected() ? editor.getSelection() : wholeText)
+    
+    let currentText = (editor.somethingSelected() ? editor.getSelection() : wholeText)
+
+    // resolve embedded preview links in text for every line, for example ![[link]] -> > linked content
+    const embeddedPreviewRegex = /!\[\[(.*?)\]\]/g;
+    const matches = currentText.match(embeddedPreviewRegex);
+    if (matches) {
+      for (const match of matches) {
+        const link = match.slice(4, -2);
+        let resolvedLink = await this.resolveLink(link);
+        // add > to each line of resolved link
+        if (!resolvedLink || resolvedLink === link) {
+          continue;
+        }
+        resolvedLink = resolvedLink.trim().split("\n").map((s) => "> " + s).join("\n");
+        resolvedLink = "\n> Linked content:\n" + resolvedLink + "\n";
+
+        currentText = currentText.replace(match, resolvedLink);
+      }
+    }
+
     // Check if the header is already present
     const headerRegex = /\n\n### Generated Flashcards\n/;
     const hasHeader = headerRegex.test(wholeText);
