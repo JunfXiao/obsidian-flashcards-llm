@@ -104,6 +104,13 @@ export default class FlashcardsLLMPlugin extends Plugin {
       }
     }
 
+    const ANKI_BLOCK_flag_REGEX = /<!-- basicblock-(start|end)([a-zA-Z]*=[\"a-zA-Z0-9]*| )* -->/g;
+    
+    currentText = currentText.replace(ANKI_BLOCK_flag_REGEX, "");
+
+    const textLineCount = currentText.split("\n").filter((s) => s.trim().length > 5).length;
+    const maxFlashcardCount = Math.max(Math.min(Number(textLineCount / 5), 5), 1);
+
     // Check if the header is already present
     const headerRegex = /\n\n### Generated Flashcards\n/;
     const hasHeader = headerRegex.test(wholeText);
@@ -115,28 +122,32 @@ export default class FlashcardsLLMPlugin extends Plugin {
 
     new Notice("Generating flashcards...");
     try {
-      const generatedCards = (await generateFlashcards(currentText, apiKey, model, sep)).split("\n");
+      const generatedCards = (await generateFlashcards(currentText, apiKey, model, sep, maxFlashcardCount)).split("\n");
       editor.setCursor(editor.lastLine())
 
       let updatedText = "";
-
-      // Generate and add the header if not already present
       if (!hasHeader) {
         updatedText += "\n\n### Generated Flashcards\n";
       }
-
-      // Generate and add the #flashcards tag if not already present
       if (!hasTag) {
         updatedText += "#flashcards\n";
       }
-
-      updatedText += "\n\n" + generatedCards.map(s => s.trim()).join('\n\n');
+      const cardStart = "<!-- basicblock-start -->\n";
+      const cardEnd = "\n<!-- basicblock-end -->";
+      updatedText += "\n\n" + generatedCards.map((s) => {
+        if (s.trim().length > 0) {
+          return cardStart + s + cardEnd;
+        } else {
+          return "";
+        }
+      }).filter((l) => l.length > 0).join("\n\n");
 
       editor.replaceRange(updatedText, editor.getCursor())
 
 
       const newPosition: EditorPosition = {
-        line: editor.lastLine()
+        line: editor.lastLine(),
+        ch: 0
       }
       editor.setCursor(newPosition)
       new Notice("Flashcards succesfully generated!");
@@ -199,9 +210,9 @@ class FlashcardsSettingsTab extends PluginSettingTab {
         }
 
         dropdown = dropdown.setValue(this.plugin.settings.model).onChange(async (value) => {
-        this.plugin.settings.model = value;
-        await this.plugin.saveSettings();
-      })
+          this.plugin.settings.model = value;
+          await this.plugin.saveSettings();
+        })
         return dropdown;
       }
     );
