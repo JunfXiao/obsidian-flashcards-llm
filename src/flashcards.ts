@@ -41,40 +41,54 @@ export async function generateFlashcards(text: string, apiKey: string, model = "
   const additionalPrompt = "Additional information on the task: Focus primarily on formulas and equations. Do NOT always start the questions with What. Do not repeat questions. Do not rephrase questions already generated. You can also ask the user to describe something or detail a given concept. You can even write flashcards asking to fill a missing word or phrase.";
 
   let response = null;
-  if (model == 'gpt-3.5-turbo') {
-    response = await openai.createChatCompletion({
-          model: model,
-          temperature: 0.7,
-          max_tokens: 300,
-          frequency_penalty: 0,
-          presence_penalty: 0,
-          top_p: 1.0,
-          messages: [{role: "system", content: basePrompt}, {role: "user", content: flashcardText}],
-      }, { timeout: 60000 });
-  }
-
-  else if(model == 'text-davinci-003') {
-    const prompt = `${basePrompt}\n${flashcardText}`;
-
+  if (model == "text-davinci-003") {
+    const prompt = `${basePrompt}
+${flashcardText}`;
     response = await openai.createCompletion({
-      model: model,
-      prompt: prompt,
+      model,
+      prompt,
       temperature: 0.7,
       max_tokens: 300,
-      top_p: 1.0,
+      top_p: 1,
+      frequency_penalty: 0,
+      presence_penalty: 0
+    });
+  } else {
+    response = await openai.createChatCompletion({
+      model,
+      temperature: 0.7,
+      max_tokens: 1000,
       frequency_penalty: 0,
       presence_penalty: 0,
-    });
+      top_p: 1,
+      messages: [{ role: "system", content: basePrompt }, { role: "user", content: flashcardText }]
+    }, { timeout: 1e4 });
   }
 
-  
-  if (model == 'text-davinci-003') {
-    return response.data.choices[0].text.trim();
+  console.log(response);
+  let data = response?.data?.choices?.[0] as any;
+
+  if (!data) {
+
+    throw new OpenAIError("No response received from OpenAI API");
   }
-  else if (model == 'gpt-3.5-turbo') {
-    return response.data.choices[0].message.content.trim();
+
+
+  if (data?.hasOwnProperty("message")) {
+    data = data.message;
   }
-  throw new OpenAIError("No response received from OpenAI API");
-  console.log(response)
+  if (data?.hasOwnProperty("text")) {
+    data = data.text;
+  }
+
+  if (data?.hasOwnProperty("content")) {
+    data = data.content;
+  }
+  if (typeof data === "string") {
+    return data.trim();
+  }
+
+  console.error(response);
+  throw new OpenAIError("Cannot recognize the response received from OpenAI API");
 
 }
